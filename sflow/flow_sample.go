@@ -26,7 +26,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/VerizonDigital/vflow/packet"
+	"github.com/thekvs/vflow/packet"
 )
 
 const (

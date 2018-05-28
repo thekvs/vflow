@@ -30,28 +30,28 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/thekvs/vflow/netflow/v9"
+	"github.com/thekvs/vflow/netflow/v5"
 	"github.com/thekvs/vflow/producer"
 )
 
-// NetflowV9 represents netflow v9 collector
-type NetflowV9 struct {
+// NetflowV5 represents netflow v5 collector
+type NetflowV5 struct {
 	port    int
 	addr    string
 	workers int
 	stop    bool
-	stats   NetflowV9Stats
+	stats   NetflowV5Stats
 	pool    chan chan struct{}
 }
 
-// NetflowV9UDPMsg represents netflow v9 UDP data
-type NetflowV9UDPMsg struct {
+// NetflowV5UDPMsg represents netflow v5 UDP data
+type NetflowV5UDPMsg struct {
 	raddr *net.UDPAddr
 	body  []byte
 }
 
-// NetflowV9Stats represents netflow v9 stats
-type NetflowV9Stats struct {
+// NetflowV5Stats represents netflow v5 stats
+type NetflowV5Stats struct {
 	UDPQueue     int
 	MessageQueue int
 	UDPCount     uint64
@@ -61,33 +61,32 @@ type NetflowV9Stats struct {
 }
 
 var (
-	netflowV9UDPCh = make(chan NetflowV9UDPMsg, 1000)
-	netflowV9MQCh  = make(chan []byte, 1000)
-
-	mCacheNF9 netflow9.MemCache
+	netflowV5UDPCh = make(chan NetflowV5UDPMsg, 1000)
+	netflowV5MQCh  = make(chan []byte, 1000)
 
 	// ipfix udp payload pool
-	netflowV9Buffer = &sync.Pool{
+	netflowV5Buffer = &sync.Pool{
 		New: func() interface{} {
-			return make([]byte, opts.NetflowV9UDPSize)
+			return make([]byte, opts.NetflowV5UDPSize)
 		},
 	}
 )
 
-// NewNetflowV9 constructs NetflowV9
-func NewNetflowV9() *NetflowV9 {
-	return &NetflowV9{
-		port:    opts.NetflowV9Port,
-		workers: opts.NetflowV9Workers,
+// NewNetflowV5 constructs NetflowV5
+func NewNetflowV5() *NetflowV5 {
+	return &NetflowV5{
+		port:    opts.NetflowV5Port,
+		addr:    opts.NetflowV5Addr,
+		workers: opts.NetflowV5Workers,
 		pool:    make(chan chan struct{}, maxWorkers),
 	}
 }
 
-func (i *NetflowV9) run() {
+func (i *NetflowV5) run() {
 	//TODO
-	// exit if the netflow v9 is disabled
-	if !opts.NetflowV9Enabled {
-		logger.Println("netflowv9 has been disabled")
+	// exit if the netflow v5 is disabled
+	if !opts.NetflowV5Enabled {
+		logger.Println("netflow v5 has been disabled")
 		return
 	}
 
@@ -104,13 +103,11 @@ func (i *NetflowV9) run() {
 		go func() {
 			wQuit := make(chan struct{})
 			i.pool <- wQuit
-			i.netflowV9Worker(wQuit)
+			i.netflowV5Worker(wQuit)
 		}()
 	}
 
-	logger.Printf("netflow v9 is running (UDP: listening on [::]:%d workers#: %d)", i.port, i.workers)
-
-	mCacheNF9 = netflow9.GetCache(opts.NetflowV9TplCacheFile)
+	logger.Printf("netflow v5 is running (UDP: listening on [::]:%d workers#: %d)", i.port, i.workers)
 
 	go func() {
 		p := producer.NewProducer(opts.MQName)
@@ -118,8 +115,8 @@ func (i *NetflowV9) run() {
 		p.MQConfigFile = opts.MQConfigFile
 		p.MQErrorCount = &i.stats.MQErrorCount
 		p.Logger = logger
-		p.Chan = netflowV9MQCh
-		p.Topic = opts.NetflowV9Topic
+		p.Chan = netflowV5MQCh
+		p.Topic = opts.NetflowV5Topic
 
 		if err := p.Run(); err != nil {
 			logger.Fatal(err)
@@ -128,7 +125,7 @@ func (i *NetflowV9) run() {
 
 	go func() {
 		if !opts.DynWorkers {
-			logger.Println("netflow v9 dynamic worker disabled")
+			logger.Println("netflow v5 dynamic worker disabled")
 			return
 		}
 
@@ -136,44 +133,39 @@ func (i *NetflowV9) run() {
 	}()
 
 	for !i.stop {
-		b := netflowV9Buffer.Get().([]byte)
+		b := netflowV5Buffer.Get().([]byte)
 		conn.SetReadDeadline(time.Now().Add(1e9))
 		n, raddr, err := conn.ReadFromUDP(b)
 		if err != nil {
 			continue
 		}
 		atomic.AddUint64(&i.stats.UDPCount, 1)
-		netflowV9UDPCh <- NetflowV9UDPMsg{raddr, b[:n]}
+		netflowV5UDPCh <- NetflowV5UDPMsg{raddr, b[:n]}
 	}
 
 }
 
-func (i *NetflowV9) shutdown() {
-	// exit if the netflow v9 is disabled
-	if !opts.NetflowV9Enabled {
-		logger.Println("netflow v9 disabled")
+func (i *NetflowV5) shutdown() {
+	// exit if the netflow v5 is disabled
+	if !opts.NetflowV5Enabled {
+		logger.Println("netflow v5 disabled")
 		return
 	}
 
 	// stop reading from UDP listener
 	i.stop = true
-	logger.Println("stopping netflow v9 service gracefully ...")
+	logger.Println("stopping netflow v5 service gracefully ...")
 	time.Sleep(1 * time.Second)
 
-	// dump the templates to storage
-	if err := mCacheNF9.Dump(opts.NetflowV9TplCacheFile); err != nil {
-		logger.Println("couldn't not dump template", err)
-	}
-
 	// logging and close UDP channel
-	logger.Println("netflow v9 has been shutdown")
-	close(netflowV9UDPCh)
+	logger.Println("netflow v5 has been shutdown")
+	close(netflowV5UDPCh)
 }
 
-func (i *NetflowV9) netflowV9Worker(wQuit chan struct{}) {
+func (i *NetflowV5) netflowV5Worker(wQuit chan struct{}) {
 	var (
-		decodedMsg *netflow9.Message
-		msg        = NetflowV9UDPMsg{body: netflowV9Buffer.Get().([]byte)}
+		decodedMsg *netflow5.Message
+		msg        = NetflowV5UDPMsg{body: netflowV5Buffer.Get().([]byte)}
 		buf        = new(bytes.Buffer)
 		err        error
 		ok         bool
@@ -183,25 +175,25 @@ func (i *NetflowV9) netflowV9Worker(wQuit chan struct{}) {
 LOOP:
 	for {
 
-		netflowV9Buffer.Put(msg.body[:opts.NetflowV9UDPSize])
+		netflowV5Buffer.Put(msg.body[:opts.NetflowV5UDPSize])
 		buf.Reset()
 
 		select {
 		case <-wQuit:
 			break LOOP
-		case msg, ok = <-netflowV9UDPCh:
+		case msg, ok = <-netflowV5UDPCh:
 			if !ok {
 				break LOOP
 			}
 		}
 
 		if opts.Verbose {
-			logger.Printf("rcvd netflow v9 data from: %s, size: %d bytes",
+			logger.Printf("rcvd netflow v5 data from: %s, size: %d bytes",
 				msg.raddr, len(msg.body))
 		}
 
-		d := netflow9.NewDecoder(msg.raddr.IP, msg.body)
-		if decodedMsg, err = d.Decode(mCacheNF9); err != nil {
+		d := netflow5.NewDecoder(msg.raddr.IP, msg.body)
+		if decodedMsg, err = d.Decode(); err != nil {
 			logger.Println(err)
 			if decodedMsg == nil {
 				continue
@@ -218,7 +210,7 @@ LOOP:
 			}
 
 			select {
-			case netflowV9MQCh <- append([]byte{}, b...):
+			case netflowV5MQCh <- append([]byte{}, b...):
 			default:
 			}
 		}
@@ -231,10 +223,10 @@ LOOP:
 
 }
 
-func (i *NetflowV9) status() *NetflowV9Stats {
-	return &NetflowV9Stats{
-		UDPQueue:     len(netflowV9UDPCh),
-		MessageQueue: len(netflowV9MQCh),
+func (i *NetflowV5) status() *NetflowV5Stats {
+	return &NetflowV5Stats{
+		UDPQueue:     len(netflowV5UDPCh),
+		MessageQueue: len(netflowV5MQCh),
 		UDPCount:     atomic.LoadUint64(&i.stats.UDPCount),
 		DecodedCount: atomic.LoadUint64(&i.stats.DecodedCount),
 		MQErrorCount: atomic.LoadUint64(&i.stats.MQErrorCount),
@@ -243,7 +235,7 @@ func (i *NetflowV9) status() *NetflowV9Stats {
 
 }
 
-func (i *NetflowV9) dynWorkers() {
+func (i *NetflowV5) dynWorkers() {
 	var load, nSeq, newWorkers, workers, n int
 
 	tick := time.Tick(120 * time.Second)
@@ -254,7 +246,7 @@ func (i *NetflowV9) dynWorkers() {
 
 		for n = 0; n < 30; n++ {
 			time.Sleep(1 * time.Second)
-			load += len(netflowV9UDPCh)
+			load += len(netflowV5UDPCh)
 		}
 
 		if load > 15 {
@@ -272,7 +264,7 @@ func (i *NetflowV9) dynWorkers() {
 
 			workers = int(atomic.LoadInt32(&i.stats.Workers))
 			if workers+newWorkers > maxWorkers {
-				logger.Println("netflow v9 :: max out workers")
+				logger.Println("netflow v5 :: max out workers")
 				continue
 			}
 
@@ -281,7 +273,7 @@ func (i *NetflowV9) dynWorkers() {
 					atomic.AddInt32(&i.stats.Workers, 1)
 					wQuit := make(chan struct{})
 					i.pool <- wQuit
-					i.netflowV9Worker(wQuit)
+					i.netflowV5Worker(wQuit)
 				}()
 			}
 

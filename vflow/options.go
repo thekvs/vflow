@@ -85,6 +85,14 @@ type Options struct {
 	NetflowV9Topic        string `yaml:"netflow9-topic"`
 	NetflowV9TplCacheFile string `yaml:"netflow9-tpl-cache-file"`
 
+	NetflowV5Enabled      bool   `yaml:"netflow5-enabled"`
+	NetflowV5Port         int    `yaml:"netflow5-port"`
+	NetflowV5Addr         string `yaml:"netflow5-addr"`
+	NetflowV5UDPSize      int    `yaml:"netflow5-udp-size"`
+	NetflowV5Workers      int    `yaml:"netflow5-workers"`
+	NetflowV5Topic        string `yaml:"netflow5-topic"`
+	NetflowV5TplCacheFile string `yaml:"netflow5-tpl-cache-file"`
+
 	// producer
 	MQName       string `yaml:"mq-name"`
 	MQConfigFile string `yaml:"mq-config-file"`
@@ -133,6 +141,12 @@ func NewOptions() *Options {
 		NetflowV9Workers:      200,
 		NetflowV9Topic:        "vflow.netflow9",
 		NetflowV9TplCacheFile: "/tmp/netflowv9.templates",
+
+		NetflowV5Enabled: true,
+		NetflowV5Port:    4730,
+		NetflowV5UDPSize: 1500,
+		NetflowV5Workers: 200,
+		NetflowV5Topic:   "vflow.netflow5",
 
 		MQName:       "kafka",
 		MQConfigFile: "/etc/vflow/mq.conf",
@@ -291,6 +305,14 @@ func (opts *Options) vFlowFlagSet() {
 	flag.IntVar(&opts.NetflowV9Workers, "netflow9-workers", opts.NetflowV9Workers, "Netflow version 9 workers number")
 	flag.StringVar(&opts.NetflowV9Topic, "netflow9-topic", opts.NetflowV9Topic, "Netflow version 9 topic name")
 	flag.StringVar(&opts.NetflowV9TplCacheFile, "netflow9-tpl-cache-file", opts.NetflowV9TplCacheFile, "Netflow version 9 template cache file")
+
+	// netflow version 5
+	flag.BoolVar(&opts.NetflowV5Enabled, "netflow5-enabled", opts.NetflowV5Enabled, "enable/disable netflow version 5 listener")
+	flag.IntVar(&opts.NetflowV5Port, "netflow5-port", opts.NetflowV5Port, "Netflow Version 5 port number")
+	flag.StringVar(&opts.NetflowV5Addr, "netflow5-addr", opts.NetflowV5Addr, "Netflow Version 5 IP address to bind to")
+	flag.IntVar(&opts.NetflowV5UDPSize, "netflow5-max-udp-size", opts.NetflowV5UDPSize, "Netflow version 5 maximum UDP size")
+	flag.IntVar(&opts.NetflowV5Workers, "netflow5-workers", opts.NetflowV5Workers, "Netflow version 5 workers number")
+	flag.StringVar(&opts.NetflowV5Topic, "netflow5-topic", opts.NetflowV5Topic, "Netflow version 5 topic name")
 
 	// producer options
 	flag.StringVar(&opts.MQName, "mqueue", opts.MQName, "producer message queue name")

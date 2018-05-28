@@ -56,8 +56,9 @@ func main() {
 	sFlow := NewSFlow()
 	ipfix := NewIPFIX()
 	netflow9 := NewNetflowV9()
+	netflow5 := NewNetflowV5()
 
-	protos := []proto{sFlow, ipfix, netflow9}
+	protos := []proto{sFlow, ipfix, netflow9, netflow5}
 
 	for _, p := range protos {
 		wg.Add(1)
