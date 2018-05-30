@@ -47,10 +47,11 @@ type PacketHeader struct {
 	SamplInt  uint16 // First two bits hold the sampling mode; remaining 14 bits hold value of sampling interval
 }
 
-// TemplateFieldSpecifier represents field properties
-type TemplateFieldSpecifier struct {
+// FieldSpecifier represents field properties
+type FieldSpecifier struct {
 	ElementID uint16
 	Length    uint16
+	Type      ipfix.FieldType
 }
 
 // DecodedField represents a decoded field
@@ -73,86 +74,106 @@ type Message struct {
 }
 
 var (
-	v5FieldSpecifiers = []TemplateFieldSpecifier{
-		TemplateFieldSpecifier{
+	v5FieldSpecifiers = []FieldSpecifier{
+		FieldSpecifier{
 			ElementID: 8,
 			Length:    4,
+			Type:      ipfix.FieldTypes["ipv4Address"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 12,
 			Length:    4,
+			Type:      ipfix.FieldTypes["ipv4Address"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 15,
 			Length:    4,
+			Type:      ipfix.FieldTypes["ipv4Address"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 10,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 14,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 2,
 			Length:    4,
+			Type:      ipfix.FieldTypes["unsigned32"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 1,
 			Length:    4,
+			Type:      ipfix.FieldTypes["unsigned32"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 22,
 			Length:    4,
+			Type:      ipfix.FieldTypes["unsigned32"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 21,
 			Length:    4,
+			Type:      ipfix.FieldTypes["unsigned32"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 7,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 11,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 210,
 			Length:    1,
+			Type:      ipfix.FieldTypes["octetArray"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 6,
 			Length:    1,
+			Type:      ipfix.FieldTypes["unsigned8"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 4,
 			Length:    1,
+			Type:      ipfix.FieldTypes["unsigned8"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 5,
 			Length:    1,
+			Type:      ipfix.FieldTypes["unsigned8"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 16,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 17,
 			Length:    2,
+			Type:      ipfix.FieldTypes["unsigned16"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 9,
 			Length:    1,
+			Type:      ipfix.FieldTypes["unsigned8"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 13,
 			Length:    1,
+			Type:      ipfix.FieldTypes["unsigned8"],
 		},
-		TemplateFieldSpecifier{
+		FieldSpecifier{
 			ElementID: 210,
 			Length:    2,
+			Type:      ipfix.FieldTypes["octetArray"],
 		},
 	}
 )
@@ -240,19 +261,19 @@ func (d *Decoder) decodeData() ([]DecodedField, error) {
 			return nil, err
 		}
 
-		m, ok := ipfix.InfoModel[ipfix.ElementKey{
-			0,
-			v5FieldSpecifiers[i].ElementID,
-		}]
-
-		if !ok {
-			return nil, nonfatalError(fmt.Errorf("Netflow element key (%d) not exist",
-				v5FieldSpecifiers[i].ElementID))
-		}
+		// m, ok := ipfix.InfoModel[ipfix.ElementKey{
+		// 	0,
+		// 	v5FieldSpecifiers[i].ElementID,
+		// }]
+		//
+		// if !ok {
+		// 	return nil, nonfatalError(fmt.Errorf("Netflow element key (%d) not exist",
+		// 		v5FieldSpecifiers[i].ElementID))
+		// }
 
 		fields = append(fields, DecodedField{
-			ID:    m.FieldID,
-			Value: ipfix.Interpret(&b, m.Type),
+			ID:    v5FieldSpecifiers[i].ElementID,
+			Value: ipfix.Interpret(&b, v5FieldSpecifiers[i].Type),
 		})
 	}
 
